@@ -1,11 +1,16 @@
 # from django.shortcuts import render
 from rest_framework import permissions, status
-from rest_framework.generics import ListAPIView, ListCreateAPIView
+from rest_framework.generics import ListAPIView, ListCreateAPIView, CreateAPIView
 from rest_framework.response import Response
+from django.db import transaction
+from django.contrib.auth import get_user_model
 
-from .models import Chat, Message
-from .serializers import ChatSerializer, MessageSerializer, MessageCreateSerializer
+from .models import Chat, Message, ChatMember
+from .serializers import (ChatSerializer, MessageSerializer, 
+                          MessageCreateSerializer, PrivateChatCreateSerializer)
 
+
+User = get_user_model()
 
 # Create your views here.
 class ChatListAPIView(ListAPIView):
@@ -58,5 +63,32 @@ class MessageListCreateAPIView(ListCreateAPIView):
         
         return Response(
             MessageSerializer(message).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PrivateChatCreateAPIView(CreateAPIView):
+    serializer_class = PrivateChatCreateSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        other_user = User.objects.get(id=serializer.validated_data['user_id'])
+        
+        chat = Chat.objects.create(
+            chat_type=Chat.ChatType.PRIVATE,
+            title='',
+        )
+        
+        ChatMember.objects.bulk_create([
+            ChatMember(chat=chat, user=request.user),
+            ChatMember(chat=chat, user=other_user),
+        ])
+        
+        return Response(
+            ChatSerializer(chat).data,
             status=status.HTTP_201_CREATED,
         )

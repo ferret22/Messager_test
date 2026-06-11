@@ -1,7 +1,10 @@
-from email import message
-
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
+
 from .models import Chat, Message
+
+
+User = get_user_model()
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -47,3 +50,18 @@ class MessageCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = ('text',)
+
+
+class PrivateChatCreateSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    
+    def validate_user_id(self, value):
+        request_user = self.context['request'].user
+        
+        if value == request_user.id:
+            raise serializers.ValidationError('You cannot create a private chat with yourself.')
+
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError('User does not exist.')
+
+        return value
