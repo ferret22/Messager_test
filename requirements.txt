@@ -1,0 +1,6 @@
+Django
+djangorestframework
+channels
+channels-redis
+psycopg[binary]
+python-dotenv
