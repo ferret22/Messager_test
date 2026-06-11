@@ -26,6 +26,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class ChatSerializer(serializers.ModelSerializer):
+    display_title = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     
     class Meta:
@@ -33,10 +34,28 @@ class ChatSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'title',
+            'display_title',
             'chat_type',
             'created_at',
             'last_message',
         )
+    
+    def get_display_title(self, obj):
+        if obj.chat_type != Chat.ChatType.PRIVATE:
+            return obj.title
+        
+        request = self.context.get('request')
+        if request is None or not request.user.is_authenticated:
+            return obj.title
+        
+        other_member = obj.members.exclude(
+            user=request.user,
+        ).select_related('user').first()
+        
+        if other_member is None:
+            return obj.title
+        
+        return other_member.user.username
     
     def get_last_message(self, obj):
         message = obj.messages.order_by('-created_at').first()

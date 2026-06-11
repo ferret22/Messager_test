@@ -87,7 +87,7 @@ class PrivateChatCreateAPIView(CreateAPIView):
         
         if existing_chat is not None:
             return Response(
-                ChatSerializer(existing_chat).data,
+                ChatSerializer(existing_chat, context={'request': request}).data,
                 status=status.HTTP_200_OK,
             )
         
@@ -102,6 +102,6 @@ class PrivateChatCreateAPIView(CreateAPIView):
         ])
         
         return Response(
-            ChatSerializer(chat).data,
+            ChatSerializer(chat, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
         )
