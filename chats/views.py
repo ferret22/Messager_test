@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.db import transaction
 from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 
 
 from .models import Chat, Message, ChatMember
@@ -38,11 +39,18 @@ class ChatListAPIView(ListAPIView):
 class MessageListCreateAPIView(ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     
+    def get_chat(self):
+        return get_object_or_404(
+            Chat,
+            id=self.kwargs['chat_id'],
+            members__user=self.request.user,
+        )
+    
     def get_queryset(self):
-        chat_id = self.kwargs['chat_id']
+        chat = self.get_chat()
+        
         return Message.objects.filter(
-            chat_id=chat_id,
-            chat__members__user=self.request.user,
+            chat=chat,
         ).select_related('sender')
     
     def get_serializer_class(self):
@@ -51,25 +59,13 @@ class MessageListCreateAPIView(ListCreateAPIView):
         return MessageSerializer
 
     def create(self, request, *args, **kwargs):
-        chat_id = self.kwargs['chat_id']
-        is_member = Chat.objects.filter(
-            id=chat_id,
-            members__user=request.user,
-        ).exists()
-        
-        if not is_member:
-            return Response(
-                {
-                    'detail': 'You are not a member of this chat.'
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        chat = self.get_chat()
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         message = serializer.save(
-            chat_id=chat_id,
+            chat=chat,
             sender=request.user,
         )
         
@@ -159,10 +155,16 @@ class ChatMemberListAPIView(ListAPIView):
     serializer_class = ChatMemberSerializer
     permission_classes = (permissions.IsAuthenticated,)
     
+    def get_chat(self):
+        return get_object_or_404(
+            Chat,
+            id=self.kwargs['chat_id'],
+            members__user=self.request.user,
+        )
+    
     def get_queryset(self):
-        chat_id = self.kwargs['chat_id']
+        chat = self.get_chat()
         
         return ChatMember.objects.filter(
-            chat_id=chat_id,
-            chat__members__user=self.request.user,
+            chat=chat,
         ).select_related('user')
