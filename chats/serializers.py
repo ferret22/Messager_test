@@ -89,3 +89,27 @@ class PrivateChatCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError('User does not exist.')
 
         return value
+
+
+class GroupChatCreateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    member_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+    )
+    
+    def validate_member_ids(self, value):
+        request_user = self.context['request'].user
+        unique_member_ids = set(value)
+        
+        if request_user.id in unique_member_ids:
+            raise serializers.ValidationError('Do not include yourself in member_ids.')
+        
+        existing_users_count = User.objects.filter(
+            id__in=unique_member_ids,
+        ).count()
+        
+        if existing_users_count != len(unique_member_ids):
+            raise serializers.ValidationError('One or more users do not exist.')
+        
+        return list(unique_member_ids)

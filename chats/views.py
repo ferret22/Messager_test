@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 
 from .models import Chat, Message, ChatMember
 from .serializers import (ChatSerializer, MessageSerializer, 
-                          MessageCreateSerializer, PrivateChatCreateSerializer)
+                          MessageCreateSerializer, PrivateChatCreateSerializer, GroupChatCreateSerializer)
 
 
 User = get_user_model()
@@ -116,3 +116,40 @@ class PrivateChatCreateAPIView(CreateAPIView):
             ChatSerializer(chat, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class GroupChatCreateAPIView(CreateAPIView):
+    serializer_class = GroupChatCreateSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        member_ids = serializer.validated_data['member_ids']
+        members = list(User.objects.filter(id__in=member_ids))
+        
+        chat = Chat.objects.create(
+            chat_type=Chat.ChatType.GROUP,
+            title=serializer.validated_data['title'],
+        )
+        
+        chat_members = [
+            ChatMember(chat=chat, user=request.user),
+        ]
+        
+        chat_members.extend(
+            ChatMember(chat=chat, user=user) for user in members
+        )
+        
+        ChatMember.objects.bulk_create(chat_members)
+        
+        return Response(
+            ChatSerializer(
+                chat,
+                context={'request': request},
+            ).data,
+            status=status.HTTP_201_CREATED,
+        )
+    
