@@ -58,7 +58,12 @@ class ChatSerializer(serializers.ModelSerializer):
         return other_member.user.username
     
     def get_last_message(self, obj):
-        message = obj.messages.order_by('-created_at').first()
+        prefetched_messages = list(obj.messages.all())
+        
+        if prefetched_messages:
+            message = prefetched_messages[0]
+        else:
+            message = obj.messages.order_by('-created_at').select_related('sender').first()
         
         if message is None:
             return None

@@ -3,7 +3,9 @@ from rest_framework import permissions, status
 from rest_framework.generics import ListAPIView, ListCreateAPIView, CreateAPIView
 from rest_framework.response import Response
 from django.db import transaction
+from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
+
 
 from .models import Chat, Message, ChatMember
 from .serializers import (ChatSerializer, MessageSerializer, 
@@ -20,6 +22,15 @@ class ChatListAPIView(ListAPIView):
     def get_queryset(self):
         return Chat.objects.filter(
             members__user=self.request.user,
+        ).prefetch_related(
+            Prefetch(
+                'members',
+                queryset=ChatMember.objects.select_related('user'),
+            ),
+            Prefetch(
+              'messages',
+              queryset=Message.objects.select_related('sender').order_by('-created_at'),
+            ),
         ).distinct()
 
 
