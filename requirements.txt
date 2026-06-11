@@ -2,5 +2,7 @@ Django
 djangorestframework
 channels
 channels-redis
+redis==5.2.1
 psycopg[binary]
 python-dotenv
+daphne
