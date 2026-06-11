@@ -78,6 +78,19 @@ class PrivateChatCreateAPIView(CreateAPIView):
         
         other_user = User.objects.get(id=serializer.validated_data['user_id'])
         
+        existing_chat = Chat.objects.filter(
+            chat_type=Chat.ChatType.PRIVATE,
+            members__user=request.user,
+        ).filter(
+            members__user=other_user,
+        ).first()
+        
+        if existing_chat is not None:
+            return Response(
+                ChatSerializer(existing_chat).data,
+                status=status.HTTP_200_OK,
+            )
+        
         chat = Chat.objects.create(
             chat_type=Chat.ChatType.PRIVATE,
             title='',
