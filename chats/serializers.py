@@ -41,3 +41,9 @@ class ChatSerializer(serializers.ModelSerializer):
         if message is None:
             return None
         return MessageSerializer(message).data
+
+
+class MessageCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ('text',)
