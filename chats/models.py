@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
+
 
 # Create your models here.
 class Chat(models.Model):
@@ -56,6 +58,22 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['created_at']
+    
+    def clean(self):
+        if not self.chat_id or not self.sender_id:
+            return
+        
+        is_member = ChatMember.objects.filter(
+            chat_id=self.chat_id,
+            user_id=self.sender_id,
+        ).exists()
+        
+        if not is_member:
+            raise ValidationError('Message sender must be a member of the chat.')
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f'Message #{self.id} from {self.sender}'
