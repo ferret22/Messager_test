@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import Chat, Message
+from .models import Chat, ChatMember, Message
 
 
 User = get_user_model()
@@ -113,3 +113,19 @@ class GroupChatCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError('One or more users do not exist.')
         
         return list(unique_member_ids)
+
+
+class ChatMemberSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(
+        source='user.username',
+        read_only=True,
+    )
+    
+    class Meta:
+        model = ChatMember
+        fields = (
+            'id',
+            'user',
+            'username',
+            'joined_at',
+        )

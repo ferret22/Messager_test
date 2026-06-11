@@ -9,7 +9,8 @@ from django.contrib.auth import get_user_model
 
 from .models import Chat, Message, ChatMember
 from .serializers import (ChatSerializer, MessageSerializer, 
-                          MessageCreateSerializer, PrivateChatCreateSerializer, GroupChatCreateSerializer)
+                          MessageCreateSerializer, PrivateChatCreateSerializer, 
+                          GroupChatCreateSerializer, ChatMemberSerializer)
 
 
 User = get_user_model()
@@ -152,4 +153,16 @@ class GroupChatCreateAPIView(CreateAPIView):
             ).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class ChatMemberListAPIView(ListAPIView):
+    serializer_class = ChatMemberSerializer
+    permission_classes = (permissions.IsAuthenticated,)
     
+    def get_queryset(self):
+        chat_id = self.kwargs['chat_id']
+        
+        return ChatMember.objects.filter(
+            chat_id=chat_id,
+            chat__members__user=self.request.user,
+        ).select_related('user')
