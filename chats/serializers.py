@@ -130,3 +130,7 @@ class ChatMemberSerializer(serializers.ModelSerializer):
             'last_read_message',
             'joined_at',
         )
+
+
+class ChatReadSerializer(serializers.Serializer):
+    message_id = serializers.IntegerField()

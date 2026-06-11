@@ -9,9 +9,15 @@ from django.shortcuts import get_object_or_404
 
 
 from .models import Chat, Message, ChatMember
-from .serializers import (ChatSerializer, MessageSerializer, 
-                          MessageCreateSerializer, PrivateChatCreateSerializer, 
-                          GroupChatCreateSerializer, ChatMemberSerializer)
+from .serializers import (
+    ChatSerializer, 
+    MessageSerializer, 
+    MessageCreateSerializer, 
+    PrivateChatCreateSerializer, 
+    GroupChatCreateSerializer, 
+    ChatMemberSerializer,
+    ChatReadSerializer,
+)
 
 
 User = get_user_model()
@@ -168,3 +174,35 @@ class ChatMemberListAPIView(ListAPIView):
         return ChatMember.objects.filter(
             chat=chat,
         ).select_related('user')
+
+
+class ChatReadAPIView(CreateAPIView):
+    serializer_class = ChatReadSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get_chat_member(self):
+        return get_object_or_404(
+            ChatMember,
+            chat_id=self.kwargs['chat_id'],
+            user=self.request.user,
+        )
+    
+    def create(self, request, *args, **kwargs):
+        chat_member = self.get_chat_member()
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        message = get_object_or_404(
+            Message,
+            id=serializer.validated_data['message_id'],
+            chat_id=self.kwargs['chat_id'],
+        )
+        
+        chat_member.last_read_message = message
+        chat_member.save(update_fields=['lats_read_message'])
+        
+        return Response(
+            ChatMemberSerializer(chat_member).data,
+            status=status.HTTP_200_OK,
+        )
