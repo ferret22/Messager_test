@@ -32,6 +32,13 @@ class ChatMember(models.Model):
         on_delete=models.CASCADE,
         related_name='chat_memberships',
     )
+    last_read_message = models.ForeignKey(
+        'Message',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='read_by_members',
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

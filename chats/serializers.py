@@ -127,5 +127,6 @@ class ChatMemberSerializer(serializers.ModelSerializer):
             'id',
             'user',
             'username',
+            'last_read_message',
             'joined_at',
         )
