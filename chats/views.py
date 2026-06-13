@@ -76,7 +76,10 @@ class MessageListCreateAPIView(ListCreateAPIView):
         )
         
         return Response(
-            MessageSerializer(message).data,
+            MessageSerializer(
+                message,
+                context={'request': request},
+            ).data,
             status=status.HTTP_201_CREATED,
         )
 

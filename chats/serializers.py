@@ -12,6 +12,7 @@ class MessageSerializer(serializers.ModelSerializer):
         source="sender.username",
         read_only=True,
     )
+    is_own = serializers.SerializerMethodField()
     
     class Meta:
         model = Message
@@ -19,10 +20,19 @@ class MessageSerializer(serializers.ModelSerializer):
             'id',
             'sender',
             'sender_username',
+            'is_own',
             'text',
             'created_at',
             'edited_at',
         )
+    
+    def get_is_own(self, obj):
+        request = self.context.get("request")
+        
+        if request is None or not request.user.is_authenticated:
+            return False
+        
+        return obj.sender_id == request.user.id
 
 
 class ChatSerializer(serializers.ModelSerializer):
@@ -92,7 +102,11 @@ class ChatSerializer(serializers.ModelSerializer):
         
         if message is None:
             return None
-        return MessageSerializer(message).data
+        
+        return MessageSerializer(
+            message,
+            context=self.context,
+        ).data
 
 
 class MessageCreateSerializer(serializers.ModelSerializer):
