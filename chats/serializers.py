@@ -37,6 +37,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class ChatSerializer(serializers.ModelSerializer):
     display_title = serializers.SerializerMethodField()
+    participants_count = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     
@@ -47,10 +48,14 @@ class ChatSerializer(serializers.ModelSerializer):
             'title',
             'display_title',
             'chat_type',
+            'participants_count',
             'created_at',
             'unread_count',
             'last_message',
         )
+    
+    def get_participants_count(self, obj):
+        return obj.members.count()
     
     def get_unread_count(self, obj):
         request = self.context.get('request')
