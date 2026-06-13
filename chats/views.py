@@ -267,3 +267,9 @@ class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
             raise PermissionDenied('You can edit only your own messages.')
         
         serializer.save(edited_at=timezone.now())
+    
+    def perform_destroy(self, instance):
+        if instance.sender_id != self.request.user.id:
+            raise PermissionDenied('You can delete only your own messages.')
+        
+        instance.delete()
