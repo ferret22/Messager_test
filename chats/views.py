@@ -206,3 +206,29 @@ class ChatReadAPIView(CreateAPIView):
             ChatMemberSerializer(chat_member).data,
             status=status.HTTP_200_OK,
         )
+
+
+class ChatReadAllAPIView(CreateAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get_chat_member(self):
+        return get_object_or_404(
+            ChatMember,
+            chat_id=self.kwargs['chat_id'],
+            user=self.request.user,
+        )
+    
+    def create(self, request, *args, **kwargs):
+        chat_member = self.get_chat_member()
+        
+        lats_message = Message.objects.filter(
+            chat=chat_member.chat,
+        ).order_by('-created_at').first()
+        
+        chat_member.last_read_message = lats_message
+        chat_member.save(update_fields=['last_read_message'])
+        
+        return Response(
+            ChatMemberSerializer(chat_member).data,
+            status=status.HTTP_200_OK,
+        )

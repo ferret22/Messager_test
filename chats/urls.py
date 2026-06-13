@@ -7,6 +7,7 @@ from .views import (
     GroupChatCreateAPIView, 
     ChatMemberListAPIView,
     ChatReadAPIView,
+    ChatReadAllAPIView,
 )
 
 
@@ -17,4 +18,5 @@ urlpatterns = [
     path('chats/group/', GroupChatCreateAPIView.as_view(), name='group-chat-create'),
     path('chats/<int:chat_id>/members/', ChatMemberListAPIView.as_view(), name='chat-member-list'),
     path('chats/<int:chat_id>/read/', ChatReadAPIView.as_view(), name='chat-read'),
+    path('chats/<int:chat_id>/read-all/', ChatReadAllAPIView.as_view(), name='chat-read-all'),
 ]
