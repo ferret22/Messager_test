@@ -1,12 +1,20 @@
 # from django.shortcuts import render
 from rest_framework import permissions, status
-from rest_framework.generics import ListAPIView, ListCreateAPIView, CreateAPIView
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+
 from django.db import transaction
 from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
+from rest_framework.generics import (
+    ListAPIView, 
+    ListCreateAPIView, 
+    CreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 
 from .models import Chat, Message, ChatMember
 from .serializers import (
@@ -17,6 +25,7 @@ from .serializers import (
     GroupChatCreateSerializer, 
     ChatMemberSerializer,
     ChatReadSerializer,
+    MessageUpdateSerializer,
 )
 
 
@@ -235,3 +244,26 @@ class ChatReadAllAPIView(CreateAPIView):
             ChatMemberSerializer(chat_member).data,
             status=status.HTTP_200_OK,
         )
+
+
+class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get_queryset(self):
+        return Message.objects.filter(
+            chat__members__user=self.request.user,
+        ).select_related('sender', 'chat')
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return MessageUpdateSerializer
+        
+        return MessageSerializer
+    
+    def perform_update(self, serializer):
+        message = self.get_object()
+        
+        if message.sender_id != self.request.user.id:
+            raise PermissionDenied('You can edit only your own messages.')
+        
+        serializer.save(edited_at=timezone.now())

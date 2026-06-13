@@ -1,3 +1,4 @@
+from attr import field
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
@@ -178,3 +179,11 @@ class ChatMemberSerializer(serializers.ModelSerializer):
 
 class ChatReadSerializer(serializers.Serializer):
     message_id = serializers.IntegerField()
+
+
+class MessageUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = (
+            'text',
+        )

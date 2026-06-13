@@ -8,6 +8,7 @@ from .views import (
     ChatMemberListAPIView,
     ChatReadAPIView,
     ChatReadAllAPIView,
+    MessageDetailAPIView,
 )
 
 
@@ -19,4 +20,5 @@ urlpatterns = [
     path('chats/<int:chat_id>/members/', ChatMemberListAPIView.as_view(), name='chat-member-list'),
     path('chats/<int:chat_id>/read/', ChatReadAPIView.as_view(), name='chat-read'),
     path('chats/<int:chat_id>/read-all/', ChatReadAllAPIView.as_view(), name='chat-read-all'),
+    path('messages/<int:pk>/', MessageDetailAPIView.as_view(), name='message-detail'),
 ]
