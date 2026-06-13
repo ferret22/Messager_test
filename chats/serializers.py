@@ -27,6 +27,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class ChatSerializer(serializers.ModelSerializer):
     display_title = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     
     class Meta:
@@ -37,8 +38,32 @@ class ChatSerializer(serializers.ModelSerializer):
             'display_title',
             'chat_type',
             'created_at',
+            'unread_count',
             'last_message',
         )
+    
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        
+        if request is None or not request.user.is_authenticated:
+            return 0
+        
+        current_member = obj.members.filter(
+            user=request.user,
+        ).first()
+        
+        if current_member is None:
+            return 0
+        
+        unread_messages = obj.messages.exclude(
+            sender=request.user,
+        )
+        
+        if current_member.last_read_message_id is not None:
+            unread_messages = unread_messages.filter(
+                created_at__gt=current_member.last_read_message.created_at,
+            )
+        return unread_messages.count()
     
     def get_display_title(self, obj):
         if obj.chat_type != Chat.ChatType.PRIVATE:
