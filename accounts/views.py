@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model, authenticate, login, logout
 from django.db.models import Q
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 
 from rest_framework import permissions, status
 from rest_framework.generics import ListAPIView
@@ -71,3 +73,10 @@ class LogoutAPIView(APIView):
     def post(self, request):
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class CSRFTokenAPIView(APIView):
+    permission_classes = (permissions.AllowAny, )
+    
+    def get(self, request):
+        return Response({'detail': 'CSRF cookie set'})
