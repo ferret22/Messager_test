@@ -33,6 +33,25 @@ from .serializers import (
 
 User = get_user_model()
 
+
+def send_chat_event(chat_id, event):
+    channel_layer = get_channel_layer()
+    
+    async_to_sync(channel_layer.group_send)(
+        f'chat_{chat_id}',
+        event,
+    )
+
+
+def send_chat_event(user_id, event):
+    channel_layer = get_channel_layer()
+    
+    async_to_sync(channel_layer.group_send)(
+        f'user_{user_id}',
+        event,
+    )
+
+
 # Create your views here.
 class ChatListAPIView(ListAPIView):
     serializer_class = ChatSerializer
@@ -219,6 +238,19 @@ class ChatReadAPIView(CreateAPIView):
         chat_member.last_read_message = message
         chat_member.save(update_fields=['last_read_message'])
         
+        send_chat_event(
+            chat_member.chat_id,
+            {
+                'type': 'read.updated',
+                'read': {
+                    'chat_id': chat_member.chat_id,
+                    'user': request.user.id,
+                    'username': request.user.username,
+                    'last_read_message': message.id,
+                },
+            },
+        )
+        
         return Response(
             ChatMemberSerializer(chat_member).data,
             status=status.HTTP_200_OK,
@@ -245,6 +277,19 @@ class ChatReadAllAPIView(CreateAPIView):
         chat_member.last_read_message = last_message
         chat_member.save(update_fields=['last_read_message'])
         
+        send_chat_event(
+            chat_member.chat_id,
+            {
+                'type': 'read.updated',
+                'read': {
+                    'chat_id': chat_member.chat_id,
+                    'user': request.user.id,
+                    'username': request.user.username,
+                    'last_read_message': last_message.id if last_message else None,
+                },
+            },
+        )
+        
         return Response(
             ChatMemberSerializer(chat_member).data,
             status=status.HTTP_200_OK,
@@ -253,22 +298,6 @@ class ChatReadAllAPIView(CreateAPIView):
 
 class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticated,)
-    
-    def send_chat_event(self, chat_id, event):
-        channel_layer = get_channel_layer()
-        
-        async_to_sync(channel_layer.group_send)(
-            f'chat_{chat_id}',
-            event
-        )
-    
-    def send_user_event(self, user_id, event):
-        channel_layer = get_channel_layer()
-        
-        async_to_sync(channel_layer.group_send)(
-            f'user_{user_id}',
-            event,
-        )
     
     def get_queryset(self):
         return Message.objects.filter(
@@ -292,7 +321,7 @@ class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
 
         message = serializer.save(edited_at=timezone.now())
         
-        self.send_chat_event(
+        send_chat_event(
             message.chat_id,
             {
               'type': 'message.updated',
@@ -316,7 +345,7 @@ class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
             message.deleted_at = timezone.now()
             message.save(update_fields=['is_deleted', 'deleted_at'])
             
-            self.send_chat_event(
+            send_chat_event(
                 message.chat_id,
                 {
                     'type': 'message.deleted',
@@ -334,7 +363,7 @@ class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
             user=request.user,
         )
         
-        self.send_user_event(
+        send_user_event(
             request.user.id,
             {
                 'type': 'message.deleted',

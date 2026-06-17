@@ -95,6 +95,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'message': event['message'],
         }))
     
+    async def read_updated(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'read_updated',
+            'read': event['read'],
+        }))
+    
     @sync_to_async
     def is_chat_member(self):
         return Chat.objects.filter(
