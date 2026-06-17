@@ -71,8 +71,12 @@ class ChatSerializer(serializers.ModelSerializer):
         if current_member is None:
             return 0
         
-        unread_messages = obj.messages.exclude(
+        unread_messages = obj.messages.filter(
+            is_deleted=False,
+        ).exclude(
             sender=request.user,
+        ).exclude(
+            deletions__user=request.user,
         )
         
         if current_member.last_read_message_id is not None:
@@ -99,16 +103,20 @@ class ChatSerializer(serializers.ModelSerializer):
         return other_member.user.username
     
     def get_last_message(self, obj):
-        prefetched_messages = list(obj.messages.all())
+        request = self.context.get('request')
         
-        if prefetched_messages:
-            message = prefetched_messages[0]
-        else:
-            message = obj.messages.order_by('-created_at').select_related('sender').first()
+        messages = obj.messages.filter(
+            is_deleted=False,
+        )
         
+        if request is not None and request.user.is_authenticated:
+            messages = messages.exclude(
+                deletions__user=request.user,
+            )
+            
+        message = messages.order_by('-created_at').select_related('sender').first()
         if message is None:
             return None
-        
         return MessageSerializer(
             message,
             context=self.context,

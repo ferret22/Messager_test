@@ -16,7 +16,7 @@ from rest_framework.generics import (
     RetrieveUpdateDestroyAPIView,
 )
 
-from .models import Chat, Message, ChatMember
+from .models import (Chat, Message, ChatMember, MessageDeletion)
 from .serializers import (
     ChatSerializer, 
     MessageSerializer, 
@@ -66,6 +66,9 @@ class MessageListCreateAPIView(ListCreateAPIView):
         
         return Message.objects.filter(
             chat=chat,
+            is_deleted=False,
+        ).exclude(
+            deletions__user=self.request.user,
         ).select_related('sender')
     
     def get_serializer_class(self):
@@ -212,7 +215,7 @@ class ChatReadAPIView(CreateAPIView):
         )
         
         chat_member.last_read_message = message
-        chat_member.save(update_fields=['lats_read_message'])
+        chat_member.save(update_fields=['last_read_message'])
         
         return Response(
             ChatMemberSerializer(chat_member).data,
@@ -233,11 +236,11 @@ class ChatReadAllAPIView(CreateAPIView):
     def create(self, request, *args, **kwargs):
         chat_member = self.get_chat_member()
         
-        lats_message = Message.objects.filter(
+        last_message = Message.objects.filter(
             chat=chat_member.chat,
         ).order_by('-created_at').first()
         
-        chat_member.last_read_message = lats_message
+        chat_member.last_read_message = last_message
         chat_member.save(update_fields=['last_read_message'])
         
         return Response(
@@ -268,8 +271,28 @@ class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
         
         serializer.save(edited_at=timezone.now())
     
-    def perform_destroy(self, instance):
-        if instance.sender_id != self.request.user.id:
-            raise PermissionDenied('You can delete only your own messages.')
+    def destroy(self, request, *args, **kwargs):
+        message = self.get_object()
+        delete_for_everyone = request.data.get('delete_for_everyone', False)
         
-        instance.delete()
+        if delete_for_everyone:
+            if message.sender_id != request.user.id:
+                raise PermissionDenied('You can delete for everyone only your own messages.')
+
+            message.is_deleted = True
+            message.deleted_at = timezone.now()
+            message.save(update_fields=['is_deleted', 'deleted_at'])
+            
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        MessageDeletion.objects.get_or_create(
+            message=message,
+            user=request.user,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    # def perform_destroy(self, instance):
+    #     if instance.sender_id != self.request.user.id:
+    #         raise PermissionDenied('You can delete only your own messages.')
+        
+    #     instance.delete()

@@ -62,6 +62,8 @@ class Message(models.Model):
     text = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     edited_at = models.DateTimeField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['created_at']
@@ -84,3 +86,23 @@ class Message(models.Model):
     
     def __str__(self):
         return f'Message #{self.id} from {self.sender}'
+
+
+class MessageDeletion(models.Model):
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='deletions',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='message_deletions',
+    )
+    deleted_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('message', 'user')
+    
+    def __str__(self):
+        return f'Message #{self.message_id} hidden from {self.user}'
