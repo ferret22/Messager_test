@@ -56,6 +56,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def receive(self, text_data):
         data = json.loads(text_data)
+        event_type = data.get('type', 'message')
+        
+        if event_type == 'typing':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'typing.status',
+                    'typing': {
+                        'chat_id': self.chat_id,
+                        'user': self.user.id,
+                        'username': self.user.username,
+                        'is_typing': bool(data.get('is_typing')),
+                    },
+                },
+            )
+            return
+        
         text = data.get('text', '').strip()
         
         if not text:
@@ -99,6 +116,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'read_updated',
             'read': event['read'],
+        }))
+    
+    async def typing_status(self, event):
+        if event['typing']['user'] == self.user.id:
+            return
+        
+        await self.send(text_data=json.dumps({
+            'type': 'typing',
+            'typing': event['typing'],
         }))
     
     @sync_to_async
