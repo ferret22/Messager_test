@@ -1,4 +1,6 @@
-# from django.shortcuts import render
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -252,6 +254,22 @@ class ChatReadAllAPIView(CreateAPIView):
 class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     
+    def send_chat_event(self, chat_id, event):
+        channel_layer = get_channel_layer()
+        
+        async_to_sync(channel_layer.group_send)(
+            f'chat_{chat_id}',
+            event
+        )
+    
+    def send_user_event(self, user_id, event):
+        channel_layer = get_channel_layer()
+        
+        async_to_sync(channel_layer.group_send)(
+            f'user_{user_id}',
+            event,
+        )
+    
     def get_queryset(self):
         return Message.objects.filter(
             chat__members__user=self.request.user,
@@ -269,7 +287,22 @@ class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
         if message.sender_id != self.request.user.id:
             raise PermissionDenied('You can edit only your own messages.')
         
-        serializer.save(edited_at=timezone.now())
+        if message.is_deleted:
+            raise PermissionDenied('You cannot edit a delete message.')
+
+        message = serializer.save(edited_at=timezone.now())
+        
+        self.send_chat_event(
+            message.chat_id,
+            {
+              'type': 'message.updated',
+              'message': {
+                    'id': message.id,
+                    'text': message.text,
+                    'edited_at': message.edited_at.isoformat(),
+              },
+            },
+        )
     
     def destroy(self, request, *args, **kwargs):
         message = self.get_object()
@@ -283,12 +316,35 @@ class MessageDetailAPIView(RetrieveUpdateDestroyAPIView):
             message.deleted_at = timezone.now()
             message.save(update_fields=['is_deleted', 'deleted_at'])
             
+            self.send_chat_event(
+                message.chat_id,
+                {
+                    'type': 'message.deleted',
+                    'message': {
+                        'id': message.id,
+                        'deleted_for_everyone': True,
+                    },  
+                },
+            )
+            
             return Response(status=status.HTTP_204_NO_CONTENT)
         
         MessageDeletion.objects.get_or_create(
             message=message,
             user=request.user,
         )
+        
+        self.send_user_event(
+            request.user.id,
+            {
+                'type': 'message.deleted',
+                'message': {
+                    'id': message.id,
+                    'deleted_for_everyone': False,
+                },  
+            },
+        )
+        
         return Response(status=status.HTTP_204_NO_CONTENT)
     
     # def perform_destroy(self, instance):

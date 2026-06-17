@@ -10,6 +10,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.chat_id = self.scope['url_route']['kwargs']['chat_id']
         self.room_group_name = f'chat_{self.chat_id}'
+        self.user_group_name = None
         self.user = self.scope['user']
         self.joined_group = False
         
@@ -21,11 +22,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not is_member:
             await self.close(code=4404)
             return
+
+        self.user_group_name = f'user_{self.user.id}'
         
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name,
         )
+        
+        await self.channel_layer.group_add(
+            self.user_group_name,
+            self.channel_name,
+        )
+        
         self.joined_group = True
         
         await self.accept()
@@ -38,6 +47,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name,
         )
+        
+        if self.user_group_name is not None:
+            await self.channel_layer.group_discard(
+                self.user_group_name,
+                self.channel_name,
+            )
     
     async def receive(self, text_data):
         data = json.loads(text_data)
@@ -51,7 +66,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_send(
             self.room_group_name,
             {
-              'type': 'chat.message',
+              'type': 'message.created',
               'message': {
                   'id': message.id,
                   'sender': message.sender_id,
@@ -62,8 +77,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
             },
         )
     
-    async def chat_message(self, event):
-        await self.send(text_data=json.dumps(event['message']))
+    async def message_created(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_created',
+            'message': event['message'],
+        }))
+    
+    async def message_updated(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_updated',
+            'message': event['message'],
+        }))
+    
+    async def message_deleted(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_deleted',
+            'message': event['message'],
+        }))
     
     @sync_to_async
     def is_chat_member(self):
