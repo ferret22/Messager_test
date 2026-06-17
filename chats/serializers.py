@@ -130,18 +130,33 @@ class MessageCreateSerializer(serializers.ModelSerializer):
 
 
 class PrivateChatCreateSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
+    user_id = serializers.IntegerField(required=False)
+    username = serializers.CharField(required=False)
     
-    def validate_user_id(self, value):
+    def validate(self, attrs):
         request_user = self.context['request'].user
+        user_id = attrs.get('user_id')
+        username = attrs.get('username')
         
-        if value == request_user.id:
-            raise serializers.ValidationError('You cannot create a private chat with yourself.')
-
-        if not User.objects.filter(id=value).exists():
-            raise serializers.ValidationError('User does not exist.')
-
-        return value
+        if not user_id and not username:
+            raise serializers.ValidationError('Provide either user_id or username')
+        
+        if user_id and username:
+            raise serializers.ValidationError('Provide only one of user_id or username')
+        
+        if user_id:
+            other_user = User.objects.filter(id=user_id).first()
+        else:
+            other_user = User.objects.filter(username=username).first()
+        
+        if other_user is None:
+            raise serializers.ValidationError('User does not exists')
+        
+        if other_user.id == request_user.id:
+            raise serializers.ValidationError('You cannot create a private chat with yourself')
+        
+        attrs['other_user'] = other_user
+        return attrs
 
 
 class GroupChatCreateSerializer(serializers.Serializer):

@@ -126,7 +126,7 @@ class PrivateChatCreateAPIView(CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        other_user = User.objects.get(id=serializer.validated_data['user_id'])
+        other_user = serializer.validated_data['other_user']
         
         existing_chat = Chat.objects.filter(
             chat_type=Chat.ChatType.PRIVATE,
