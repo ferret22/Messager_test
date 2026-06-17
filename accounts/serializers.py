@@ -1,0 +1,12 @@
+from rest_framework import serializers
+
+
+class CurrentUserSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.EmailField()
+
+
+
