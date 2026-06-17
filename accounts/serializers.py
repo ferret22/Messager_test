@@ -9,4 +9,8 @@ class CurrentUserSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 
-
+class UserSearchSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
