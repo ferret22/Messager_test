@@ -24,16 +24,24 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [messageText, setMessageText] = useState('');
+  const [typingUsername, setTypingUsername] = useState<string | null>(null);
+  const [typingTimeoutId, setTypingTimeoutId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!selectedChatId || !currentUser) {
       return;
     }
 
+    setTypingUsername(null);
+
     const ws = new WebSocket(`ws://localhost:8000/ws/chats/${selectedChatId}/`);
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
+      if (data.type === 'typing') {
+        setTypingUsername(data.typing.is_typing ? data.typing.username : null);
+      }
 
       if (data.type === 'message_created') {
         const message = {
@@ -187,7 +195,11 @@ function App() {
               <header className="chat-header">
                 <div>
                   <h2>{selectedChat.display_title}</h2>
-                  <span>{selectedChat.participants_count} participants</span>
+                  <span>
+                    {typingUsername
+                      ? `${typingUsername} печатает...`
+                      : `${selectedChat.participants_count} participants`}
+                  </span>
                 </div>
               </header>
 
@@ -220,7 +232,20 @@ function App() {
               <form className="message-composer" onSubmit={handleSendMessage}>
                 <input
                   value={messageText}
-                  onChange={(event) => setMessageText(event.target.value)}
+                  onChange={(event) => {
+                    setMessageText(event.target.value);
+                    sendTypingStatus(true);
+
+                    if (typingTimeoutId !== null) {
+                      window.clearTimeout(typingTimeoutId);
+                    }
+
+                    const timeoutId = window.setTimeout(() => {
+                      sendTypingStatus(false);
+                    }, 1200);
+
+                    setTypingTimeoutId(timeoutId);
+                  }}
                   placeholder="Написать сообщение..."
                 />
                 <button type="submit">Отправить</button>
@@ -258,6 +283,17 @@ function App() {
         ...currentChats.filter((item) => item.id !== chatId),
       ];
     });
+  }
+
+  function sendTypingStatus(isTyping: boolean) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({
+      type: 'typing',
+      is_typing: isTyping,
+    }));
   }
 
   return (
