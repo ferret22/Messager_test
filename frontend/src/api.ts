@@ -91,3 +91,21 @@ export async function getMessages(chatId: number): Promise<Message[]> {
 
   return response.json();
 }
+
+export async function readAllMessages(chatId: number) {
+  const response = await fetch(`${API_BASE_URL}/chats/${chatId}/read-all/`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken'),
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to mark chat as read');
+  }
+
+  return response.json();
+}

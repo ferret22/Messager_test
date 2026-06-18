@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { getChats, getMe, getMessages, initCsrf, login } from './api';
+import { getChats, getMe, getMessages, initCsrf, login, readAllMessages } from './api';
 import type { Chat, Message } from './api';
 
 type User = {
@@ -53,6 +53,18 @@ function App() {
         setMessages((currentMessages) => [...currentMessages, message]);
         moveChatToTopWithMessage(message.chat_id ?? selectedChatId, message);
       }
+
+      if (data.type === 'read_updated') {
+        if (data.read.user === currentUser.id) {
+          setChats((currentChats) =>
+            currentChats.map((chat) =>
+              chat.id === data.read.chat_id
+                ? { ...chat, unread_count: 0 }
+                : chat,
+            ),
+          );
+        }
+      }
     };
 
     ws.onclose = (event) => {
@@ -101,6 +113,18 @@ function App() {
         setIsMessagesLoading(true);
         const messageList = await getMessages(selectedChatId);
         setMessages(messageList);
+
+        if (messageList.length > 0) {
+          await readAllMessages(selectedChatId);
+
+          setChats((currentChats) =>
+            currentChats.map((chat) =>
+              chat.id === selectedChatId
+                ? { ...chat, unread_count: 0 }
+                : chat,
+            ),
+          );
+        }
       } catch (error) {
         console.error('Messages loading failed:', error);
         setMessages([]);
