@@ -303,3 +303,28 @@ form button:hover {
   margin: auto;
   color: #64748b;
 }
+
+.message-composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid #d8e0e8;
+  background: #ffffff;
+}
+
+.message-composer input {
+  border-radius: 999px;
+}
+
+.message-composer button {
+  border-radius: 999px;
+  padding: 0 18px;
+  background: #3390ec;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.message-composer button:hover {
+  background: #247fd8;
+}

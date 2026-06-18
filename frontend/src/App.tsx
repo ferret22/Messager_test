@@ -22,6 +22,41 @@ function App() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [messageText, setMessageText] = useState('');
+
+  useEffect(() => {
+    if (!selectedChatId || !currentUser) {
+      return;
+    }
+
+    const ws = new WebSocket(`ws://localhost:8000/ws/chats/${selectedChatId}/`);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'message_created') {
+        const message = {
+          ...data.message,
+          is_own: data.message.sender === currentUser.id,
+          edited_at: data.message.edited_at ?? null,
+        };
+
+        setMessages((currentMessages) => [...currentMessages, message]);
+        moveChatToTopWithMessage(message.chat_id ?? selectedChatId, message);
+      }
+    };
+
+    ws.onclose = (event) => {
+      console.log('WebSocket closed:', event.code);
+    };
+
+    setSocket(ws);
+
+    return () => {
+      ws.close();
+    };
+  }, [selectedChatId, currentUser]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -68,6 +103,19 @@ function App() {
 
     loadMessages();
   }, [selectedChatId]);
+
+  function handleSendMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const text = messageText.trim();
+
+    if (!text || !socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({ text }));
+    setMessageText('');
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,6 +216,15 @@ function App() {
                   <p className="muted">Сообщений пока нет.</p>
                 )}
               </section>
+
+              <form className="message-composer" onSubmit={handleSendMessage}>
+                <input
+                  value={messageText}
+                  onChange={(event) => setMessageText(event.target.value)}
+                  placeholder="Написать сообщение..."
+                />
+                <button type="submit">Отправить</button>
+              </form>
             </>
           ) : (
             <section className="empty-chat">
@@ -177,6 +234,30 @@ function App() {
         </main>
       </div>
     );
+  }
+
+  function moveChatToTopWithMessage(chatId: number, message: Message) {
+    setChats((currentChats) => {
+      const chat = currentChats.find((item) => item.id === chatId);
+
+      if (!chat) {
+        return currentChats;
+      }
+
+      const updatedChat = {
+        ...chat,
+        last_message: message,
+        unread_count:
+          chatId === selectedChatId || message.is_own
+            ? chat.unread_count
+            : chat.unread_count + 1,
+      };
+
+      return [
+        updatedChat,
+        ...currentChats.filter((item) => item.id !== chatId),
+      ];
+    });
   }
 
   return (

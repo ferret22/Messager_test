@@ -2,6 +2,7 @@ const API_BASE_URL = 'http://localhost:8000/api';
 
 export type Message = {
   id: number;
+  chat_id?: number;
   sender: number;
   sender_username: string;
   is_own: boolean;
