@@ -1,5 +1,26 @@
 const API_BASE_URL = 'http://localhost:8000/api';
 
+export type Message = {
+  id: number;
+  sender: number;
+  sender_username: string;
+  is_own: boolean;
+  text: string;
+  created_at: string;
+  edited_at: string | null;
+};
+
+export type Chat = {
+  id: number;
+  title: string;
+  display_title: string;
+  chat_type: 'private' | 'group';
+  participants_count: number;
+  created_at: string;
+  unread_count: number;
+  last_message: Message | null;
+};
+
 function getCookie(name: string): string {
     const cookies = document.cookie.split('; ');
     const cookie = cookies.find((item) => item.startsWith(`${name}=`));
@@ -44,4 +65,28 @@ export async function getMe() {
         return null;
     }
     return response.json();
+}
+
+export async function getChats(): Promise<Chat[]> {
+  const response = await fetch(`${API_BASE_URL}/chats/`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to load chats');
+  }
+
+  return response.json();
+}
+
+export async function getMessages(chatId: number): Promise<Message[]> {
+  const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages/`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to load messages');
+  }
+
+  return response.json();
 }
