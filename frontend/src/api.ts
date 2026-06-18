@@ -109,3 +109,21 @@ export async function readAllMessages(chatId: number) {
 
   return response.json();
 }
+
+export async function updateMessage(messageId: number, text: string): Promise<Message> {
+  const response = await fetch(`${API_BASE_URL}/messages/${messageId}/`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken'),
+    },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update message');
+  }
+
+  return response.json();
+}

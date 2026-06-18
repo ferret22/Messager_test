@@ -43,7 +43,7 @@ def send_chat_event(chat_id, event):
     )
 
 
-def send_chat_event(user_id, event):
+def send_user_event(user_id, event):
     channel_layer = get_channel_layer()
     
     async_to_sync(channel_layer.group_send)(

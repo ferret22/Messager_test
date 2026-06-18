@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { getChats, getMe, getMessages, initCsrf, login, readAllMessages } from './api';
+import {
+  getChats,
+  getMe,
+  getMessages,
+  initCsrf,
+  login,
+  readAllMessages,
+  updateMessage,
+} from './api';
 import type { Chat, Message } from './api';
 
 type User = {
@@ -26,6 +34,13 @@ function App() {
   const [messageText, setMessageText] = useState('');
   const [typingUsername, setTypingUsername] = useState<string | null>(null);
   const [typingTimeoutId, setTypingTimeoutId] = useState<number | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [messageMenu, setMessageMenu] = useState<{
+    messageId: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!selectedChatId || !currentUser) {
@@ -52,6 +67,39 @@ function App() {
 
         setMessages((currentMessages) => [...currentMessages, message]);
         moveChatToTopWithMessage(message.chat_id ?? selectedChatId, message);
+      }
+
+      if (data.type === 'message_updated') {
+        setMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.id === data.message.id
+              ? {
+                  ...message,
+                  text: data.message.text,
+                  edited_at: data.message.edited_at,
+                }
+              : message,
+          ),
+        );
+
+        setChats((currentChats) =>
+          currentChats.map((chat) => {
+            const lastMessage = chat.last_message;
+
+            if (!lastMessage || lastMessage.id !== data.message.id) {
+              return chat;
+            }
+
+            return {
+              ...chat,
+              last_message: {
+                ...lastMessage,
+                text: data.message.text,
+                edited_at: data.message.edited_at,
+              },
+            };
+          }),
+        );
       }
 
       if (data.type === 'read_updated') {
@@ -173,7 +221,7 @@ function App() {
     const selectedChat = chats.find((chat) => chat.id === selectedChatId) ?? null;
 
     return (
-      <div className="messenger-shell">
+      <div className="messenger-shell" onClick={() => setMessageMenu(null)}>
         <aside className="sidebar">
           <div className="sidebar-header">
             <div>
@@ -235,21 +283,82 @@ function App() {
                     <div
                       className={`message-bubble ${message.is_own ? 'own' : ''}`}
                       key={message.id}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+
+                        if (!message.is_own || editingMessageId === message.id) {
+                          return;
+                        }
+
+                        setMessageMenu({
+                          messageId: message.id,
+                          x: event.clientX,
+                          y: event.clientY,
+                        });
+                      }}
                     >
                       {!message.is_own && (
                         <span className="message-author">{message.sender_username}</span>
                       )}
-                      <p>{message.text}</p>
-                      <time>
-                        {new Date(message.created_at).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </time>
+
+                      {editingMessageId === message.id ? (
+                        <form className="edit-form" onSubmit={saveEditedMessage}>
+                          <input
+                            value={editingText}
+                            onChange={(event) => setEditingText(event.target.value)}
+                            autoFocus
+                          />
+                          <div className="edit-actions">
+                            <button type="submit">Save</button>
+                            <button type="button" onClick={cancelEditingMessage}>
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          <p>{message.text}</p>
+                          <div className="message-meta">
+                            {message.edited_at && <span>edited</span>}
+                            <time>
+                              {new Date(message.created_at).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </time>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))
                 ) : (
                   <p className="muted">Сообщений пока нет.</p>
+                )}
+                {messageMenu && (
+                  <div
+                    className="message-context-menu"
+                    style={{
+                      left: messageMenu.x,
+                      top: messageMenu.y,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const message = messages.find(
+                          (item) => item.id === messageMenu.messageId,
+                        );
+
+                        if (message) {
+                          startEditingMessage(message);
+                        }
+
+                        setMessageMenu(null);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 )}
               </section>
 
@@ -318,6 +427,66 @@ function App() {
       type: 'typing',
       is_typing: isTyping,
     }));
+  }
+
+  function startEditingMessage(message: Message) {
+    setMessageMenu(null);
+    setEditingMessageId(message.id);
+    setEditingText(message.text);
+  }
+
+  function cancelEditingMessage() {
+    setEditingMessageId(null);
+    setEditingText('');
+  }
+
+  async function saveEditedMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!editingMessageId) {
+      return;
+    }
+
+    const text = editingText.trim();
+
+    if (!text) {
+      return;
+    }
+
+    const updatedMessage = await updateMessage(editingMessageId, text);
+
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === updatedMessage.id
+          ? {
+              ...message,
+              text: updatedMessage.text,
+              edited_at: updatedMessage.edited_at,
+            }
+          : message,
+      ),
+    );
+
+    setChats((currentChats) =>
+      currentChats.map((chat) => {
+        const lastMessage = chat.last_message;
+
+        if (!lastMessage || lastMessage.id !== updatedMessage.id) {
+          return chat;
+        }
+
+        return {
+          ...chat,
+          last_message: {
+            ...lastMessage,
+            text: updatedMessage.text,
+            edited_at: updatedMessage.edited_at,
+          },
+        };
+      }),
+    );
+
+    cancelEditingMessage();
   }
 
   return (
